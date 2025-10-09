@@ -37,7 +37,7 @@ const Icons = {
   Package: () => (
     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <line x1="16.5" y1="9.4" x2="7.5" y2="4.21"></line>
-      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
       <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
       <line x1="12" y1="22.08" x2="12" y2="12"></line>
     </svg>
@@ -49,6 +49,7 @@ export default function ProductsDashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState('add');
@@ -61,23 +62,37 @@ export default function ProductsDashboard() {
     quantity: ''
   });
 
-  const itemsPerPage = 8;
+  const itemsPerPage = 5;
 
+  // Debounce search term with 500ms delay
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+      // Reset to first page when search term changes
+      if (searchTerm !== debouncedSearchTerm) {
+        setCurrentPage(1);
+      }
+    }, 500);
+
+    // Cleanup function to clear timeout if searchTerm changes before delay
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Fetch products when debounced search term or current page changes
   useEffect(() => {
     fetchProducts(currentPage);
-  }, [currentPage, searchTerm]);
+  }, [currentPage, debouncedSearchTerm]);
 
   const fetchProducts = async (page = 1) => {
     setIsLoading(true);
     setError('');
     try {
       const response = await fetch(
-        `${API_BASE_URL}/items/get-items?page=${page}&limit=${itemsPerPage}&search=${encodeURIComponent(searchTerm)}`
+        `${API_BASE_URL}/items/get-items?page=${page}&limit=${itemsPerPage}&search=${encodeURIComponent(debouncedSearchTerm)}`
       );
       if (!response.ok) throw new Error('Failed to fetch products');
       const data = await response.json();
 
-      // Backend returns paginated data with `items`, `currentPage`, `totalPages`
       setProducts(data.items);
       setTotalPages(data.totalPages);
     } catch (error) {
@@ -178,7 +193,6 @@ export default function ProductsDashboard() {
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
-    setCurrentPage(1); // reset to first page on search
   };
 
   return (
@@ -216,7 +230,7 @@ export default function ProductsDashboard() {
           </div>
         </div>
 
-        {/* Products Grid */}
+        {/* Products Table */}
         {isLoading ? (
           <div className="loadingContainer"><div className="spinner"></div></div>
         ) : products.length === 0 ? (
@@ -225,23 +239,58 @@ export default function ProductsDashboard() {
             <p className="emptyText">No products found</p>
           </div>
         ) : (
-          <div className="grid">
-            {products.map((product) => (
-              <div key={product._id} className="card">
-                <div className="cardHeader">
-                  <h3 className="cardTitle">{product.name}</h3>
-                  <div className="cardActions">
-                    <button onClick={() => openModal('edit', product)} className="iconButton editButton"><Icons.Edit /></button>
-                    <button onClick={() => handleDelete(product._id)} className="iconButton deleteButton"><Icons.Trash /></button>
-                  </div>
-                </div>
-                <p className="cardDescription">{product.description || 'No description available'}</p>
-                <div className="cardFooter">
-                  <div className="priceContainer"><span className="currency">R</span><span className="price">{product.price}</span></div>
-                  <div className="stockContainer"><span className="stockLabel">Stock:</span><span className="stockValue">{product.quantity}</span></div>
-                </div>
-              </div>
-            ))}
+          <div className="tableContainer">
+            <table className="productTable">
+              <thead>
+                <tr>
+                  <th className="tableHeader">#</th>
+                  <th className="tableHeader">Product Name</th>
+                  <th className="tableHeader">Description</th>
+                  <th className="tableHeader">Price</th>
+                  <th className="tableHeader">Stock</th>
+                  <th className="tableHeader">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {products.map((product, index) => (
+                  <tr key={product._id} className="tableRow">
+                    <td className="tableCell tableCellNumber">
+                      {(currentPage - 1) * itemsPerPage + index + 1}
+                    </td>
+                    <td className="tableCell tableCellName">{product.name}</td>
+                    <td className="tableCell tableCellDescription">
+                      {product.description || 'No description available'}
+                    </td>
+                    <td className="tableCell tableCellPrice">
+                      <span className="priceTag">R {product.price}</span>
+                    </td>
+                    <td className="tableCell tableCellStock">
+                      <span className={`stockBadge ${product.quantity > 10 ? 'stockHigh' : product.quantity > 0 ? 'stockMedium' : 'stockLow'}`}>
+                        {product.quantity} units
+                      </span>
+                    </td>
+                    <td className="tableCell tableCellActions">
+                      <div className="actionButtons">
+                        <button 
+                          onClick={() => openModal('edit', product)} 
+                          className="iconButton editButton"
+                          title="Edit Product"
+                        >
+                          <Icons.Edit />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(product._id)} 
+                          className="iconButton deleteButton"
+                          title="Delete Product"
+                        >
+                          <Icons.Trash />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 
