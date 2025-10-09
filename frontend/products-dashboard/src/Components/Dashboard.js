@@ -3,7 +3,6 @@ import '../App.css';
 
 const API_BASE_URL = 'http://localhost:4000/api'; 
 
-
 const Icons = {
   Search: () => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -47,9 +46,9 @@ const Icons = {
 
 export default function ProductsDashboard() {
   const [products, setProducts] = useState([]);
-  const [filteredProducts, setFilteredProducts] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState('add');
@@ -63,21 +62,24 @@ export default function ProductsDashboard() {
   });
 
   const itemsPerPage = 8;
-  const token = localStorage.getItem('token');
 
   useEffect(() => {
-    fetchProducts();
-  }, []);
+    fetchProducts(currentPage);
+  }, [currentPage, searchTerm]);
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (page = 1) => {
     setIsLoading(true);
     setError('');
     try {
-      const response = await fetch(`${API_BASE_URL}/items/get-items`);
+      const response = await fetch(
+        `${API_BASE_URL}/items/get-items?page=${page}&limit=${itemsPerPage}&search=${encodeURIComponent(searchTerm)}`
+      );
       if (!response.ok) throw new Error('Failed to fetch products');
       const data = await response.json();
-      setProducts(data);
-      setFilteredProducts(data);
+
+      // Backend returns paginated data with `items`, `currentPage`, `totalPages`
+      setProducts(data.items);
+      setTotalPages(data.totalPages);
     } catch (error) {
       console.error('Error fetching products:', error);
       setError('Failed to load products. Please check your API connection.');
@@ -85,20 +87,6 @@ export default function ProductsDashboard() {
       setIsLoading(false);
     }
   };
-
-  useEffect(() => {
-    const results = products.filter(product =>
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.description?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    setFilteredProducts(results);
-    setCurrentPage(1);
-  }, [searchTerm, products]);
-
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentProducts = filteredProducts.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
 
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -119,7 +107,6 @@ export default function ProductsDashboard() {
         method,
         headers: {
           'Content-Type': 'application/json',
-          // 'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(formData)
       });
@@ -129,7 +116,7 @@ export default function ProductsDashboard() {
         throw new Error(errorData.message || 'Failed to save product');
       }
 
-      await fetchProducts();
+      fetchProducts(currentPage);
       closeModal();
     } catch (error) {
       console.error('Error saving product:', error);
@@ -147,9 +134,6 @@ export default function ProductsDashboard() {
     try {
       const response = await fetch(`${API_BASE_URL}/items/${id}`, {
         method: 'DELETE',
-        headers: {
-          // 'Authorization': `Bearer ${token}`
-        }
       });
 
       if (!response.ok) {
@@ -157,7 +141,7 @@ export default function ProductsDashboard() {
         throw new Error(errorData.message || 'Failed to delete product');
       }
 
-      await fetchProducts();
+      fetchProducts(currentPage);
     } catch (error) {
       console.error('Error deleting product:', error);
       setError(error.message || 'Failed to delete product. Please try again.');
@@ -192,23 +176,25 @@ export default function ProductsDashboard() {
     setFormData({ name: '', description: '', price: '', quantity: '' });
   };
 
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1); // reset to first page on search
+  };
+
   return (
     <div className="container">
       {/* Header */}
       <div className="header">
         <div className="headerContent">
           <div className="headerLeft">
-            <div className="iconBox">
-              <Icons.Package />
-            </div>
+            <div className="iconBox"><Icons.Package /></div>
             <div>
               <h1 className="title">Products Dashboard</h1>
-              <p className="subtitle">Manage your inventory</p>
+              <p className="subtitle">Meat Mart</p>
             </div>
           </div>
           <button onClick={() => openModal('add')} className="addButton">
-            <Icons.Plus />
-            <span>Add Product</span>
+            <Icons.Plus /><span>Add Product</span>
           </button>
         </div>
       </div>
@@ -224,7 +210,7 @@ export default function ProductsDashboard() {
               type="text"
               placeholder="Search products by name or description..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={handleSearchChange}
               className="searchInput"
             />
           </div>
@@ -233,14 +219,14 @@ export default function ProductsDashboard() {
         {/* Products Grid */}
         {isLoading ? (
           <div className="loadingContainer"><div className="spinner"></div></div>
-        ) : currentProducts.length === 0 ? (
+        ) : products.length === 0 ? (
           <div className="emptyState">
             <Icons.Package />
             <p className="emptyText">No products found</p>
           </div>
         ) : (
           <div className="grid">
-            {currentProducts.map((product) => (
+            {products.map((product) => (
               <div key={product._id} className="card">
                 <div className="cardHeader">
                   <h3 className="cardTitle">{product.name}</h3>

@@ -12,14 +12,78 @@ const addItem = async (req, res) => {
 };
 
 
+// const getItems = async (req, res) => {
+//   try {
+//     const items = await Item.find();
+//     res.json(items);
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
+// const getItems = async (req, res) => {
+//   try {
+    
+//     const page = parseInt(req.query.page) || 1;
+//     const limit = parseInt(req.query.limit) || 8;
+
+//     const totalItems = await Item.countDocuments();
+
+//     const items = await Item.find()
+//       .skip((page - 1) * limit)   
+//       .limit(limit)               
+//       .sort({ createdAt: -1 });   
+
+//     // Calculate total pages
+//     const totalPages = Math.ceil(totalItems / limit);
+
+//     res.json({
+//       items,          
+//       currentPage: page,
+//       totalPages,
+//       totalItems
+//     });
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
+
 const getItems = async (req, res) => {
   try {
-    const items = await Item.find();
-    res.json(items);
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 8;
+    const search = req.query.search || '';
+
+    // Build query
+    const query = {};
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const totalItems = await Item.countDocuments(query);
+    const items = await Item.find(query)
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .sort({ createdAt: -1 });
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    res.json({
+      items,
+      currentPage: page,
+      totalPages,
+      totalItems
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
+
+
 
 
 const updateItem = async (req, res) => {

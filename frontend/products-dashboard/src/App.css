@@ -284,6 +284,8 @@ body, html, #root {
 }
 .disabledButton { opacity: 0.5; cursor: not-allowed; }
 
+
+
 /* Modal */
 .modalOverlay {
   position: fixed;
