@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ProductsDashboard from './Dashboard'; 
 import '../App.css';
 
@@ -68,10 +68,19 @@ const Icons = {
   )
 };
 
-const AdminDashboard = () => {
+const AdminDashboard = ({ onLogout }) => {
   const [activeMenu, setActiveMenu] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [productsExpanded, setProductsExpanded] = useState(true);
+  const [userName, setUserName] = useState('Admin');
+
+  // Get user name from localStorage on component mount
+  useEffect(() => {
+    const storedUserName = localStorage.getItem('userName');
+    if (storedUserName) {
+      setUserName(storedUserName);
+    }
+  }, []);
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Icons.Dashboard },
@@ -93,11 +102,17 @@ const AdminDashboard = () => {
     setProductsExpanded(!productsExpanded);
   };
 
+  const handleLogout = () => {
+    if (window.confirm('Are you sure you want to logout?')) {
+      onLogout();
+    }
+  };
+
   const renderContent = () => {
     switch(activeMenu) {
       case 'products-list':
         return <ProductsDashboard />;
-case 'dashboard':
+      case 'dashboard':
         return (
           <div className="dashboardContent">
             <h1 className="pageTitle">Dashboard Overview</h1>
@@ -138,7 +153,7 @@ case 'dashboard':
                 </div>
                 <div className="statInfo">
                   <p className="statLabel">Revenue</p>
-                  <h2 className="statValue">R 45,678</h2>
+                  <h2 className="statValue">₹ 45,678</h2>
                   <p className="statChange positive">+23% from last month</p>
                 </div>
               </div>
@@ -269,7 +284,7 @@ case 'dashboard':
         </nav>
 
         <div className="sidebarFooter">
-          <div className="navItem logout">
+          <div className="navItem logout" onClick={handleLogout}>
             <div className="navItemContent">
               <Icons.Logout />
               {sidebarOpen && <span>Logout</span>}
@@ -290,8 +305,8 @@ case 'dashboard':
           </button>
           <div className="topBarRight">
             <div className="userProfile">
-              <div className="userAvatar">A</div>
-              <span className="userName">Admin User</span>
+              <div className="userAvatar">{userName.charAt(0).toUpperCase()}</div>
+              <span className="userName">{userName}</span>
             </div>
           </div>
         </header>
@@ -300,7 +315,7 @@ case 'dashboard':
         <main className="contentArea">
           {renderContent()}
         </main>
-      </div>``
+      </div>
     </div>
   );
 };
